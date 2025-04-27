@@ -8,7 +8,7 @@ import (
 
 func Setup(r *gin.Engine) {
 	ms, err := handler.SetupMoiveServer()
-	if err !=nil {
+	if err != nil {
 		panic("")
 	}
 	r.GET("/search", ms.HandlerSearch)

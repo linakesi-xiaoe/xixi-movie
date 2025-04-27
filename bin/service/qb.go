@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
@@ -37,11 +36,13 @@ func SetupQbClient() (*QbClient, error) {
 func (q *QbClient) AuthLogin(username string, password string, host string, port string) error {
 	// curl -i -c cookies.txt -d 'username=admin&password=adminadmin' http://localhost:8080/api/v2/auth/login
 	u := fmt.Sprintf("http://%s:%s/api/v2/auth/login", host, port)
-	query := url.Values{}
-	query.Add("username", username)
-	query.Add("password", password)
-	resp, err := http.Get(u + "?" + query.Encode())
+	data := url.Values{}
+	data.Add("username", username)
+	data.Add("password", password)
+	resp, err := http.PostForm(u, data)
+	log.Println("requerst urlL", resp.Request.URL)
 	if err != nil {
+		log.Println("err: %s", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -49,22 +50,20 @@ func (q *QbClient) AuthLogin(username string, password string, host string, port
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("login failed")
 	}
+
+	// cache auth
 	q.qbs.host = host
 	q.qbs.port = port
 	q.qbs.username = username
 	q.qbs.password = password
 
-	// save response cookie
-
-	//save cookie to q.hc.jar
 	url, err := url.Parse(u)
 	if err != nil {
+		log.Println("url err:", err)
 		return err
 	}
-	cookies := q.hc.Jar.Cookies(url)
-	for _, cookie := range cookies {
-		log.Println(cookie.Name, cookie.Value)
-	}
+	//save cookie to q.hc.jar
+	q.hc.Jar.SetCookies(url, resp.Cookies())
 	return nil
 }
 
@@ -87,12 +86,6 @@ func (q *QbClient) AddByMagnet(magnet string) error {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	bodyStr := string(body)
-	log.Println(bodyStr)
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("add torrent failed")
 	}
